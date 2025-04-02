@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLMANO</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+
+        height: 100vh;
+        width: 100vw;
+      }
+      #chat-container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 60%; /* Set width to 80% of the parent container */
+        height: fit-content;
+        margin: 10%;
+      }
+
+      #message-area {
+        overflow-y: auto;
+      }
+      .message {
+        display: flex;
+        margin-bottom: 10px;
+      }
+      .message.user {
+        justify-content: flex-end;
+      }
+      .message.bot {
+        justify-content: flex-start;
+      }
+      .message .text {
+        padding: 10px;
+        border-radius: 10px;
+        max-width: 75%;
+        word-wrap: break-word;
+      }
+      .message.user .text {
+        background-color: #007bff;
+        color: white;
+      }
+      .message.bot .text {
+        background-color: #f1f1f1;
+        color: black;
+      }
+      #input-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #user-input {
+        width: 80%;
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        font-size: 16px;
+      }
+      #send-button {
+        width: 15%;
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      #send-button:hover {
+        background-color: #0056b3;
+      }
+
+      /* Upload button styling */
+      #upload-area {
+        width: 100%;
+        padding: 50px 0;
+        background-color: #f8f8f8;
+        border: 2px dashed #ddd;
+        border-radius: 10px;
+        text-align: center;
+        cursor: pointer;
+      }
+      #upload-area.hover {
+        background-color: #e0e0e0;
+      }
+      #upload-area p {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      #file-input {
+        display: none; /* Hide the file input */
+      }
+
+      #input-container {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chat-container">
+      <div id="message-area">
+        <!-- Default bot message when the page loads -->
+        <div class="message bot">
+          <div class="text">
+            Hello, I am llmano, an AI to help you anonymize your data. Please
+            upload your data as a CSV here.
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="upload-area"
+        ondrop="handleDrop(event)"
+        ondragover="handleDragOver(event)"
+      >
+        <p>Drag and drop your CSV file here or click to select</p>
+        <input
+          type="file"
+          id="file-input"
+          accept=".csv"
+          onchange="handleFileSelect(event)"
+        />
+      </div>
+
+      <div id="input-container">
+        <input
+          type="text"
+          id="user-input"
+          placeholder="Type a message..."
+          onkeypress="handleKeyPress(event)"
+        />
+        <button id="send-button" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <script>
+      const inputContainer = document.getElementById("input-container");
+
+      const messageArea = document.getElementById("message-area");
+      const userInput = document.getElementById("user-input");
+      const fileInput = document.getElementById("file-input");
+      const uploadArea = document.getElementById("upload-area");
+
+      uploadArea.addEventListener("click", () => {
+        fileInput.click(); // Trigger the file input click
+      });
+
+      // Function to append a new message to the chat area
+      function appendMessage(message, sender) {
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", sender);
+
+        const textDiv = document.createElement("div");
+        textDiv.classList.add("text");
+        textDiv.textContent = message;
+
+        messageDiv.appendChild(textDiv);
+        messageArea.appendChild(messageDiv);
+        messageArea.scrollTop = messageArea.scrollHeight; // Auto-scroll to the bottom
+      }
+
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file && file.name.endsWith(".csv")) {
+          console.log("File selected:", file.name);
+          // You can process the CSV file here
+        } else {
+          alert("Please select a valid CSV file.");
+        }
+      }
+
+      // Handle message send
+      function sendMessage() {
+        const userMessage = userInput.value.trim();
+        if (userMessage) {
+          appendMessage(userMessage, "user");
+          userInput.value = "";
+
+          // Make the request to the backend
+          fetch(`/chat?user_input=${encodeURIComponent(userMessage)}`)
+            .then((response) => response.text())
+            .then((data) => {
+              appendMessage(data, "bot");
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              appendMessage(
+                "Sorry, there was an error. Please try again.",
+                "bot"
+              );
+            });
+        }
+      }
+
+      // Handle file select
+      function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file && file.type === "text/csv") {
+          // Show a loading message
+          appendMessage("Analyzing your dataset...", "bot");
+
+          // Create a FormData object to send the CSV file
+          const formData = new FormData();
+          formData.append("csv_file", file);
+
+          // Send the file to the server
+          fetch("/upload", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              if (response.status === 200) {
+                appendMessage("File uploaded successfully. Ask me some questions about your data.", "bot");
+                inputContainer.style.display = "flex"; // Show the input container
+                uploadArea.style.display = "none"; // Hide the upload area
+              } else {
+                appendMessage("Error: File upload failed.", "bot");
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              appendMessage(
+                "Error: Something went wrong. Please try again.",
+                "bot"
+              );
+            });
+        } else {
+          appendMessage("Please upload a valid CSV file.", "bot");
+        }
+      }
+
+      // Handle drag over event
+      function handleDragOver(event) {
+        event.preventDefault();
+        uploadArea.classList.add("hover");
+      }
+
+      // Handle drop event
+      function handleDrop(event) {
+        event.preventDefault();
+        uploadArea.classList.remove("hover");
+        const file = event.dataTransfer.files[0];
+        fileInput.files = event.dataTransfer.files; // Set the file input's files property to the dropped file
+        handleFileSelect({ target: fileInput });
+      }
+
+      // Handle Enter key press
+      function handleKeyPress(event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      }
+    </script>
+  </body>
+</html>
